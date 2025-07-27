@@ -1,0 +1,6 @@
+@NIIEPay_HostAddress = http://localhost:5207
+
+GET {{NIIEPay_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
