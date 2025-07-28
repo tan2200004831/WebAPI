@@ -17,15 +17,17 @@ public partial class NiiepayContext : DbContext
 
     public virtual DbSet<Account> Accounts { get; set; }
 
+    public virtual DbSet<Deposit> Deposits { get; set; }
+
     public virtual DbSet<InterestRate> InterestRates { get; set; }
 
     public virtual DbSet<Saving> Savings { get; set; }
 
     public virtual DbSet<Transaction> Transactions { get; set; }
 
-//    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-//#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-//        => optionsBuilder.UseSqlServer("Data Source=LENHATTAN\\SQLEXPRESS;Initial Catalog=NIIEPay;Integrated Security=True;Trust Server Certificate=True");
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlServer("Data Source=LENHATTAN\\SQLEXPRESS;Initial Catalog=NIIEPay;Integrated Security=True;Trust Server Certificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +52,23 @@ public partial class NiiepayContext : DbContext
             entity.Property(e => e.Phone)
                 .HasMaxLength(15)
                 .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<Deposit>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__Deposit__3214EC07462DD3A6");
+
+            entity.ToTable("Deposit");
+
+            entity.Property(e => e.Amount).HasColumnType("decimal(18, 3)");
+            entity.Property(e => e.DepositDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+
+            entity.HasOne(d => d.Account).WithMany(p => p.Deposits)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__Deposit__Account__5EBF139D");
         });
 
         modelBuilder.Entity<InterestRate>(entity =>

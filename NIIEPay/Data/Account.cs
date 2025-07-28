@@ -23,6 +23,8 @@ public partial class Account
 
     public decimal AvailableBalance { get; set; }
 
+    public virtual ICollection<Deposit> Deposits { get; set; } = new List<Deposit>();
+
     public virtual ICollection<Saving> Savings { get; set; } = new List<Saving>();
 
     public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();

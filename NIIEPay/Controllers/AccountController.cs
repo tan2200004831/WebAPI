@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using NIIEPay.Data;
-using NIIEPay.Model;
+using NIIEPay.Dto;
 
 namespace NIIEPay.Controllers
 {
@@ -15,38 +15,29 @@ namespace NIIEPay.Controllers
             _context = context;
         }
 
-        // 🧩 3.1 API Đăng ký tài khoản
+        // API Đăng ký tài khoản
         [HttpPost("register")]
-        public IActionResult Register(Account account)
+        public IActionResult Register(RegisterAccountDto dto)
         {
-            if (_context.Accounts.Any(a => a.AccountNumber == account.AccountNumber))
+            if (_context.Accounts.Any(a => a.AccountNumber == dto.AccountNumber))
                 return BadRequest("Số tài khoản đã tồn tại.");
+
+            var account = new Account
+            {
+                AccountNumber = dto.AccountNumber,
+                Password = dto.Password,
+                AccountHolder = dto.AccountHolder,
+                Phone = dto.Phone,
+                Email = dto.Email,
+                CitizenId = dto.CitizenId,
+                ExpiryDate = dto.ExpiryDate,
+                AvailableBalance = 0
+            };
 
             _context.Accounts.Add(account);
             _context.SaveChanges();
             return Ok(account);
         }
 
-        // 🧩 3.2 API Truy vấn thông tin tài khoản
-        [HttpGet("{accountNumber}")]
-        public IActionResult GetByAccountNumber(string accountNumber)
-        {
-            var account = _context.Accounts
-                .Where(a => a.AccountNumber == accountNumber)
-                .Select(a => new AccountDto
-                {
-                    AccountNumber = a.AccountNumber,
-                    AccountHolder = a.AccountHolder,
-                    Phone = a.Phone,
-                    Email = a.Email,
-                    ExpiryDate = a.ExpiryDate,
-                    AvailableBalance = a.AvailableBalance
-                })
-                .FirstOrDefault();
-
-            if (account == null) return NotFound();
-
-            return Ok(account);
-        }
     }
 }
