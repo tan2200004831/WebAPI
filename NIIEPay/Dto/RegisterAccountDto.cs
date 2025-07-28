@@ -9,5 +9,6 @@
             public string Email { get; set; }
             public string CitizenId { get; set; }
             public DateOnly ExpiryDate { get; set; }
+            public decimal InitialBalance { get; set; }
     }
 }

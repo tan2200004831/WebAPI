@@ -14,6 +14,12 @@ builder.Services.AddDbContext<NiiepayContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("NIIEPay"));
 });
 
+builder.Services.AddControllers().AddJsonOptions(x =>
+{
+    x.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    x.JsonSerializerOptions.WriteIndented = true;
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
