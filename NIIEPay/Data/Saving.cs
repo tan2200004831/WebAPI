@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace NIIEPay.Data;
 
@@ -20,6 +21,7 @@ public partial class Saving
     public DateOnly MaturityDate { get; set; }
 
     public bool AutoRenew { get; set; }
+    [JsonIgnore]
 
     public virtual Account? Account { get; set; }
 }

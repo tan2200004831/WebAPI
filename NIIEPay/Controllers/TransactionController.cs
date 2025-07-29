@@ -17,7 +17,7 @@ namespace NIIEPay.Controllers
             _context = context;
         }
 
-        // 🟢 Tạo giao dịch chuyển tiền
+        // 🟢 Tạo giao dịch chuyển tiền (có TransactionFee = 0)
         [HttpPost("create")]
         public IActionResult CreateTransaction(CreateTransactionDto input)
         {
@@ -27,16 +27,12 @@ namespace NIIEPay.Controllers
             if (fromAccount == null || toAccount == null)
                 return BadRequest("Tài khoản gửi hoặc nhận không tồn tại.");
 
-            // kiểm tra số dư khả dụng >= 50,000đ sau giao dịch (ĐĂNG FIX)
             if (fromAccount.AvailableBalance - input.Amount < 50000)
                 return BadRequest("Số dư không đủ sau khi trừ (phải ≥ 50,000đ).");
 
-
-            // Trừ tiền người gửi, cộng tiền người nhận
             fromAccount.AvailableBalance -= input.Amount;
             toAccount.AvailableBalance += input.Amount;
 
-            // Xác định giao dịch nội bộ
             bool isInternal = string.IsNullOrEmpty(input.ExternalBankCode);
 
             var transaction = new Transaction
@@ -49,7 +45,8 @@ namespace NIIEPay.Controllers
                 IsInternal = isInternal,
                 TransactionTime = DateTime.UtcNow,
                 BalanceAfter = fromAccount.AvailableBalance,
-                TransactionCode = Guid.NewGuid().ToString("N").ToUpper()
+                TransactionCode = Guid.NewGuid().ToString("N").ToUpper(),
+                TransactionFee = 0 // miễn phí
             };
 
             _context.Transactions.Add(transaction);
@@ -65,13 +62,14 @@ namespace NIIEPay.Controllers
                 Note = transaction.Note,
                 IsInternal = transaction.IsInternal,
                 ExternalBankCode = transaction.ExternalBankCode,
-                TransactionCode = transaction.TransactionCode
+                TransactionCode = transaction.TransactionCode,
+                TransactionFee = transaction.TransactionFee
             };
 
             return Ok(result);
         }
 
-        // 🟡 Lấy lịch sử giao dịch theo accountId
+        // 🟡 Lịch sử giao dịch
         [HttpGet("history/{accountId}")]
         public IActionResult GetTransactionHistory(int accountId)
         {
@@ -88,31 +86,30 @@ namespace NIIEPay.Controllers
                     Note = t.Note,
                     IsInternal = t.IsInternal,
                     ExternalBankCode = t.ExternalBankCode,
-                    TransactionCode = t.TransactionCode
+                    TransactionCode = t.TransactionCode,
+                    TransactionFee = t.TransactionFee
                 })
                 .ToList();
 
             return Ok(history);
         }
 
-
-        // ĐĂNG thêm lấy giao dịch theo khoảng thời gian
+        // 🔍 Lọc theo ngày và số tài khoản
         [HttpGet]
         public IActionResult GetTransactionsByDate(
-        [FromQuery] string accountNumber,
-        [FromQuery] DateTime fromDate,
-        [FromQuery] DateTime toDate)
+            [FromQuery] string accountNumber,
+            [FromQuery] DateTime fromDate,
+            [FromQuery] DateTime toDate)
         {
             var account = _context.Accounts.FirstOrDefault(a => a.AccountNumber == accountNumber);
             if (account == null)
                 return NotFound(new { status = "FAIL", message = "Không tìm thấy tài khoản." });
 
-            // Lấy id để so sánh vì Transaction chỉ chứa AccountId
             int accId = account.AccountId;
 
             var transactions = _context.Transactions
-                .Where(t => t.FromAccountId == accId || t.ToAccountId == accId)
-                .Where(t => t.TransactionTime >= fromDate && t.TransactionTime <= toDate)
+                .Where(t => (t.FromAccountId == accId || t.ToAccountId == accId)
+                            && t.TransactionTime >= fromDate && t.TransactionTime <= toDate)
                 .OrderByDescending(t => t.TransactionTime)
                 .Select(t => new
                 {
@@ -122,14 +119,15 @@ namespace NIIEPay.Controllers
                     amount = t.Amount,
                     transactionTime = t.TransactionTime,
                     balanceAfter = t.BalanceAfter,
-                    note = t.Note
+                    note = t.Note,
+                    transactionFee = t.TransactionFee
                 })
                 .ToList();
 
             return Ok(transactions);
         }
 
-        // ĐĂNG thêm chuyển khoản nội bộ
+        //  Chuyển khoản nội bộ
         [HttpPost("transfers/internal")]
         public IActionResult TransferInternal(InternalTransferDto dto)
         {
@@ -139,27 +137,18 @@ namespace NIIEPay.Controllers
             if (from.AvailableBalance - dto.Amount < 50000)
                 return BadRequest("Không đủ số dư để thực hiện giao dịch. Cần giữ lại tối thiểu 50,000đ.");
 
-            // Tìm tài khoản nhận theo số tài khoản hoặc số điện thoại
             var to = _context.Accounts.FirstOrDefault(a =>
                 a.AccountNumber == dto.ToAccountOrPhone || a.Phone == dto.ToAccountOrPhone);
             if (to == null) return NotFound("Tài khoản nhận không tồn tại.");
 
-            // Trừ tiền người gửi
             from.AvailableBalance -= dto.Amount;
-
-            // Cộng tiền người nhận
             to.AvailableBalance += dto.Amount;
 
-            // Tạo mã giao dịch đơn giản
-            var transactionId1 = $"TXN{DateTime.Now:yyyyMMddHHmmssfff}";
-            var transactionId2 = $"TXN{DateTime.Now.AddMilliseconds(1):yyyyMMddHHmmssfff}";
-
-
-            // Lưu 2 giao dịch (ghi nhận vào bảng Transaction)
             var now = DateTime.Now;
-            dto.Note ??= "Chuyển khoản nội bộ (không phí)";
+            var transactionId1 = $"TXN{now:yyyyMMddHHmmssfff}";
+            var transactionId2 = $"TXN{now.AddMilliseconds(1):yyyyMMddHHmmssfff}";
+            dto.Note ??= "Chuyển khoản nội bộ (miễn phí)";
 
-            // Giao dịch người gửi
             _context.Transactions.Add(new Transaction
             {
                 FromAccountId = from.AccountId,
@@ -169,10 +158,10 @@ namespace NIIEPay.Controllers
                 BalanceAfter = from.AvailableBalance,
                 Note = dto.Note,
                 TransactionCode = transactionId1,
-                IsInternal = true
+                IsInternal = true,
+                TransactionFee = 0
             });
 
-            // Giao dịch người nhận
             _context.Transactions.Add(new Transaction
             {
                 FromAccountId = from.AccountId,
@@ -182,11 +171,9 @@ namespace NIIEPay.Controllers
                 BalanceAfter = to.AvailableBalance,
                 Note = dto.Note,
                 TransactionCode = transactionId2,
-                IsInternal = true
+                IsInternal = true,
+                TransactionFee = 0
             });
-
-
-
 
             _context.SaveChanges();
 
@@ -200,7 +187,7 @@ namespace NIIEPay.Controllers
             });
         }
 
-        // ĐĂNG thêm chuyển khoản liên ngân hàng
+        // 🔁 Chuyển khoản liên ngân hàng
         [HttpPost("transfers/external")]
         public IActionResult TransferExternal(ExternalTransferDto dto)
         {
@@ -210,15 +197,12 @@ namespace NIIEPay.Controllers
             if (from.AvailableBalance - dto.Amount < 50000)
                 return BadRequest("Không đủ số dư để thực hiện giao dịch. Cần giữ lại tối thiểu 50,000đ.");
 
-            // Trừ tiền
             from.AvailableBalance -= dto.Amount;
 
-            // Tạo mã giao dịch
             var transactionId = $"TXN{DateTime.Now:yyyyMMddHHmmssfff}";
             var now = DateTime.Now;
             dto.Note ??= "Chuyển khoản liên ngân hàng";
 
-            // Ghi log giao dịch (chỉ 1 chiều)
             _context.Transactions.Add(new Transaction
             {
                 FromAccountId = from.AccountId,
@@ -229,7 +213,8 @@ namespace NIIEPay.Controllers
                 Note = dto.Note,
                 IsInternal = false,
                 ExternalBankCode = dto.ToBankCode,
-                TransactionCode = transactionId
+                TransactionCode = transactionId,
+                TransactionFee = 0
             });
 
             _context.SaveChanges();
@@ -242,6 +227,8 @@ namespace NIIEPay.Controllers
                 RemainingBalance = from.AvailableBalance
             });
         }
+
+        // 🔍 Lọc giao dịch theo khoảng thời gian và accountId
         [HttpGet("history/{accountId}/filter")]
         public IActionResult GetTransactionHistoryFiltered(int accountId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
         {
@@ -253,6 +240,17 @@ namespace NIIEPay.Controllers
                             && t.TransactionTime.Date >= fromDate.Value.Date
                             && t.TransactionTime.Date <= toDate.Value.Date)
                 .OrderByDescending(t => t.TransactionTime)
+                .Select(t => new
+                {
+                    t.TransactionCode,
+                    t.TransactionTime,
+                    t.Amount,
+                    t.BalanceAfter,
+                    t.Note,
+                    t.IsInternal,
+                    t.ExternalBankCode,
+                    t.TransactionFee
+                })
                 .ToList();
 
             return Ok(history);

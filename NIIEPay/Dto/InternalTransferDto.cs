@@ -6,5 +6,7 @@
         public string ToAccountOrPhone { get; set; } = null!;
         public decimal Amount { get; set; }
         public string? Note { get; set; }
+
+        public decimal TransactionFee { get; set; }
     }
 }

@@ -11,5 +11,6 @@
         public bool IsInternal { get; set; }
         public string? ExternalBankCode { get; set; }
         public string TransactionCode { get; set; } = null!;
+        public decimal TransactionFee { get; set; }  
     }
 }

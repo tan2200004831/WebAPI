@@ -25,9 +25,9 @@ public partial class NiiepayContext : DbContext
 
     public virtual DbSet<Transaction> Transactions { get; set; }
 
-    /*protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=LENHATTAN\\SQLEXPRESS;Initial Catalog=NIIEPay;Integrated Security=True;Trust Server Certificate=True");*/
+//    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+//#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+//        => optionsBuilder.UseSqlServer("Data Source=LENHATTAN\\SQLEXPRESS;Initial Catalog=NIIEPay;Integrated Security=True;Trust Server Certificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -108,6 +108,7 @@ public partial class NiiepayContext : DbContext
             entity.Property(e => e.TransactionCode)
                 .HasMaxLength(50)
                 .IsUnicode(false);
+            entity.Property(e => e.TransactionFee).HasColumnType("decimal(18, 3)");
             entity.Property(e => e.TransactionTime)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");

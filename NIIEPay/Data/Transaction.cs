@@ -25,5 +25,7 @@ public partial class Transaction
 
     public string TransactionCode { get; set; } = null!;
 
+    public decimal TransactionFee { get; set; }
+
     public virtual Account? FromAccount { get; set; }
 }
